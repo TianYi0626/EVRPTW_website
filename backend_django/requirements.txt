@@ -1,0 +1,13 @@
+django
+
+django-cors-headers
+# pymysql
+# mysqlclient
+
+pytest
+pytest-django
+coverage
+
+# TODO Start: [Student] Add dependency on uWSGI
+
+# TODO End: [Student] Add dependency on uWSGI
