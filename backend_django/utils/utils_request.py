@@ -1,11 +1,10 @@
 from django.http import JsonResponse
 
-
 def request_failed(code, info, status_code=400):
     return JsonResponse({
         "code": code,
         "info": info
-    }, status=status_code)
+    }, status=status_code, content_type="application/json")
 
 
 def request_success(data={}):

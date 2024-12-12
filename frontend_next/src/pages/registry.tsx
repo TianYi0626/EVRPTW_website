@@ -10,28 +10,35 @@ import { Icon } from "react-icons-kit";
 const RegistryScreen = () => {
     const [userName, setUserName] = useState("");
     const [password, setPassword] = useState("");
+    const [password2, setPassword2] = useState("");
     const dispatch = useDispatch();
     const router = useRouter();
 
     const registry = () => {
-        fetch(`${BACKEND_URL}/api/registry`, {
-            method: "POST",
-            body: JSON.stringify({
-                userName,
-                password,
-            }),
-        })
-            .then((res) => res.json())
-            .then((res) => {
-                if (Number(res.code) === 0) {
-                    alert(REGISTRY_SUCCESS);
-                    router.back();
-                }
-                else {
-                    alert(REGISTRY_FAILED);
-                }
+        if (password !== password2) {
+            console.log("确认密码需与密码相同");
+            alert(REGISTRY_FAILED + "，确认密码需与密码相同");
+        }
+        else {
+            fetch(`${BACKEND_URL}/api/registry`, {
+                method: "POST",
+                body: JSON.stringify({
+                    userName,
+                    password,
+                }),
             })
-            .catch((err) => alert(FAILURE_PREFIX + err));
+                .then((res) => res.json())
+                .then((res) => {
+                    if (Number(res.code) === 0) {
+                        alert(REGISTRY_SUCCESS);
+                        router.back();
+                    }
+                    else {
+                        alert(REGISTRY_FAILED);
+                    }
+                })
+                .catch((err) => alert(FAILURE_PREFIX + err));
+        }
     };
 
     return (
@@ -56,17 +63,30 @@ const RegistryScreen = () => {
                         <label className="input input-bordered flex items-center gap-5">
                             <Icon icon={key} size={30}></Icon>
                             <input
-                                type="text"
-                                className="grow p-1 m-1"
+                                type="password"
+                                className="p-1 m-1"
                                 placeholder="密码"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}/>
+                        </label>
+                        <label className="input input-bordered flex items-center gap-5">
+                            <Icon icon={key} size={30}></Icon>
+                            <input
+                                type="password"
+                                className="p-1 m-1"
+                                placeholder="确认密码"
+                                value={password2}
+                                onChange={(e) => setPassword2(e.target.value)}/>
                         </label>
                         <div className="flex text-center items-center justify-center">
                             <button
                                 className="btn bg-base-100"
                                 onClick={registry}
                                 disabled={userName === "" || password === ""}> 确认注册 </button>
+                            <button
+                                className="btn bg-base-100"
+                                onClick={() => router.back()}
+                            >返回</button>
                         </div>
                     </div>
                 </div>

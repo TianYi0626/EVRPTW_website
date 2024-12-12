@@ -1,147 +1,228 @@
+import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { useEffect, useRef, useState } from "react";
-import { CREATE_SUCCESS, FAILURE_PREFIX, LOGIN_REQUIRED, UPDATE_SUCCESS } from "../constants/string";
-import { getNullTask, taskToString, stringToTask } from "../utils/logic";
-import { NetworkError, NetworkErrorType, request } from "../utils/network";
-import { RootState } from "../redux/store";
-import { resetTaskCache, setTaskCache } from "../redux/task";
-import { useSelector, useDispatch } from "react-redux";
+import { BACKEND_URL } from "../constants/string";
+import Image from "next/image";
+import { resetAuth } from "../redux/auth";
+import { useDispatch } from "react-redux";
 
-const MainScreen = () => {
-    /**
-     * @todo [Step 3] 请在下述一处代码缺失部分填写合适的代码，使得棋盘状态正确切换且计时器资源分配、释放合理
-     */
-    const taskCache = useSelector((state: RootState) => state.task.task);
-    const userName = useSelector((state: RootState) => state.auth.name);
-
-    const dispatch = useDispatch();
-
-    const [id, setId] = useState<undefined | number>(undefined);
-    const [initTask, setInitTask] = useState(getNullTask());
-    const [task, setTask] = useState(taskCache);
-    const [autoPlay, setAutoPlay] = useState(false);
-    const [recordUserName, setRecordUserName] = useState("");
-    const [refreshing, setRefreshing] = useState(false);
-
-    const timerRef = useRef<undefined | NodeJS.Timeout>(undefined);
-
+const MainPage = () => {
+    const [imageUrl, setImageUrl] = useState<string | null>(null);
+    const [loading, setLoading] = useState<boolean>(true);
+    const [error, setError] = useState<string | null>(null);
     const router = useRouter();
-    const query = router.query;
+    const dispatch = useDispatch();
+    const [func, setFunc] = useState<number>(0);
+    const [k, setK] = useState<number>(10);
+    const [clusters, setClusters] = useState<boolean[]>(Array(20).fill(true));
+    const [all, setAll] = useState<boolean>(true);
+    const [none, setNone] = useState<boolean>(false);
+
+    const logout = () => {
+        dispatch(resetAuth());
+        router.back();
+    };
+
+    const toggleClusters = (index: number) => {
+        // Update a specific boolean in the array
+        setClusters((prev) =>
+            prev.map((value, i) => (i === index ? !value : value))
+        );
+    };
+
+    const selectAll = () => {
+        if (all) {
+            setAll(false);
+        }
+        else {
+            setAll(true);
+            setNone(false);
+            setClusters((prev) => prev.map((value, i) => (true)));
+        }
+    };
+
+    const unselectAll = () => {
+        if (none) {
+            setNone(false);
+        }
+        else {
+            setNone(true);
+            setAll(false);
+            setClusters((prev) =>
+                prev.map((value, i) => (false)));
+        }
+    };
 
     useEffect(() => {
-        if (!router.isReady) {
-            return;
-        }
-        if (router.query.id === undefined) {
-            // @todo 这里需要考虑是否需要加载缓存
-            setId(undefined);
-            return;
-        }
-        if (!/^[0-9]+$/.test(router.query.id as string)) {
-            router.replace("/");
-            return;
-        }
+        const postKToBackend = async () => {
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/update_k`, {
+                    method: "POST",
+                    body: JSON.stringify({ k, clusters }), // Send k as the request body
+                })
+                .then((res) => res.json())
+                .then((res) => {
+                  if (Number(res.code) === 0) {
+                    alert("聚类更新成功");
+                  }
+                  else {
+                    alert("聚类更新失败");
+                  }
+                  }
+                )
+                .catch((err) => alert(`Failed to login: ${err}`));
 
-        setRefreshing(true);
-        setId(Number(router.query.id));
-        request(`/api/boards/${router.query.id}`, "GET", false)
-            .then((res) => {
-                const fetchedTask = stringToTask(res.board);
-
-                setTask(fetchedTask);
-                setInitTask(fetchedTask);
-                setRecordUserName(res.userName);
-            })
-            .catch((err) => {
-                alert(FAILURE_PREFIX + err);
-                router.push("/");
-            })
-            .finally(() => setRefreshing(false));
-    }, [router, query]);
-
-    useEffect(() => () => {
-        clearInterval(timerRef.current);
-    }, []);
-
-    useEffect(() => {
-        if (id === undefined) {
-            dispatch(resetTaskCache());
-        }
-
-        return () => {
-            if (id === undefined) {
-                dispatch(setTaskCache(task));
+                console.log("k successfully updated on the backend");
+            }
+            catch (error) {
+                console.error("Error while updating k:", error);
             }
         };
-    }, [task, id, dispatch]);
+        postKToBackend();
+    }, [k, clusters]); // Trigger the effect only when k changes
 
-    const switchAutoPlay = () => {
-        // Step 3 BEGIN
-
-        // Step 3 END
-    };
-
-    const ExecuteTask = () => {
-        request(
-            "/api/task",
-            "POST",
-            true,
-            {
-                userName,
-                task: taskToString(task),
+    useEffect(() => {
+        // Replace this URL with your actual backend API endpoint
+        fetch(`${BACKEND_URL}/api/location_img`, {
+            method: "GET",
+          })
+        .then((res) => {
+            if (!res.ok) {
+            throw new Error("Failed to fetch image");
             }
-        )
-            .then((res) => alert(res.isCreate ? CREATE_SUCCESS : UPDATE_SUCCESS))
-            .catch((err) => {
-                if (
-                    err instanceof NetworkError &&
-                    err.type === NetworkErrorType.UNAUTHORIZED
-                ) {
-                    alert(LOGIN_REQUIRED);
-                    router.push("/login");
-                }
-                else {
-                    alert(FAILURE_PREFIX + err);
-                }
-            });
-    };
+            return res.blob(); // Assuming the image is sent as a binary blob
+        })
+        .then((blob) => {
+            const imageUrl = URL.createObjectURL(blob);
+            setImageUrl(imageUrl);
+            setLoading(false);
+        })
+        .catch((err) => {
+            setError("Error loading image");
+            setLoading(false);
+        });
+    }, [k]);
 
-    return refreshing ? (
-        <p> Loading... </p>
-    ) : (
-        <>
-            {id === undefined ? (
-                <h4> Free Mode </h4>
-            ) : (
-                <h4> Replay Mode, Board ID: {id}, Author: {recordUserName} </h4>
-            )}
-            <div style={{ display: "flex", flexDirection: "column" }}>
-                <div style={{ display: "flex", flexDirection: "row" }}>
-                    <button onClick={() => setTask(getNullTask())} disabled={autoPlay}>
-                        Clear the board
-                    </button>
-                    {id !== undefined && (
-                        <button onClick={() => setTask(initTask)} disabled={autoPlay}>
-                            Undo all changes
-                        </button>
-                    )}
-                    <button onClick={switchAutoPlay}>
-                        {autoPlay ? "Stop" : "Start"} auto play
-                    </button>
+    if (loading) {
+        return <div>Loading...</div>;
+    }
+
+  return (
+    <div className="min-h-screen bg-base-100 items-center justify-center">
+        <div className="flex min-h-screen">
+        <ul className="menu bg-base-200 rounded-box w-40 text-lg">
+            <div className="flex flex-col h-full items-center gap-3">
+            <li
+                onClick={() => setFunc(0)}
+                className={func === 0 ? "bg-base-100 text-black rounded-box w-36 items-center" : ""}>
+                <a>展示地图</a></li>
+                <li>
+                <details open>
+                <summary>聚类数量</summary>
+                <ul className="items-center">
+                    <li
+                    onClick={() => setK(5)}
+                    className={k === 5 ? "bg-base-100 text-black rounded-box w-20 items-center" : ""}>
+                    <a>5</a></li>
+                    <li
+                    onClick={() => setK(10)}
+                    className={k === 10 ? "bg-base-100 text-black rounded-box w-20 items-center" : ""}>
+                    <a>10</a></li>
+                    <li
+                    onClick={() => setK(20)}
+                    className={k === 20 ? "bg-base-100 text-black rounded-box w-20 items-center" : ""}>
+                    <a>20</a></li>
+                </ul>
+                </details>
+            </li>
+            <li
+                onClick={() => setFunc(1)}
+                className={func === 1 ? "bg-base-100 text-black rounded-box w-36 items-center" : ""}>
+                <a>计算路径</a></li>
+            <li
+                onClick={() => setFunc(2)}
+                className={func === 2 ? "bg-base-100 text-black rounded-box w-36 items-center" : ""}>
+                <a>发布任务</a></li>
+            <div className="flex flex-col-reverse h-full">
+                <button
+                    className="btn btn-error text-lg"
+                    onClick={() => {
+                        const logoutModal = document.getElementById("logout");
+                        if (logoutModal instanceof HTMLDialogElement) {
+                            logoutModal.showModal();
+                        }
+                        }}>
+                    退出登录
+                </button>
+                <dialog id="logout" className="modal">
+                <div className="modal-box">
+                    <h3 className="font-bold text-lg">Hello!</h3>
+                    <p className="py-4">是否确认退出登录？</p>
+                    <div className="modal-action">
+                    <form method="dialog">
+                        <div className="flex gap-5">
+                        <button
+                            className="btn btn-accent"
+                            onClick={logout}>确定</button>
+                        <button className="btn">取消</button></div>
+                    </form>
+                    </div>
                 </div>
-                <div style={{ display: "flex", flexDirection: "row" }}>
-                    <button onClick={() => router.push("/list")}>
-                        Go to full list
-                    </button>
-                    {id !== undefined && (
-                        <button onClick={() => router.push("/")}>
-                            Go back to free mode
-                        </button>
-                    )}
+                </dialog>
+            </div></div>
+        </ul>
+            <div className="flex flex-col w-32">
+                {clusters.slice(0, k).map((cluster, index) => (
+                    <div className="form-control" key={index}>
+                        <label className="cursor-pointer label">
+                        <span className="label-text text-lg">区域 {index+1}</span>
+                        <input
+                            type="checkbox"
+                            checked={cluster}
+                            onChange={() => toggleClusters(index)}
+                            className="checkbox checkbox-accent"
+                        /></label>
+                    </div>
+                ))}
+                <div className="form-control">
+                        <label className="cursor-pointer label">
+                        <span className="label-text text-lg">全选</span>
+                        <input
+                            type="checkbox"
+                            checked={all}
+                            onChange={selectAll}
+                            className="checkbox checkbox-accent"
+                        /></label>
+                </div>
+                <div className="form-control">
+                        <label className="cursor-pointer label">
+                        <span className="label-text text-lg">全不选</span>
+                        <input
+                            type="checkbox"
+                            checked={none}
+                            onChange={unselectAll}
+                            className="checkbox checkbox-accent"
+                        /></label>
                 </div>
             </div>
-        </>
-    );
+        <div className="w-full min-h-screen">
+            <div className="flex flex-col items-center justify-center">
+            {imageUrl ? (
+            <Image
+                src={imageUrl} // The image URL from the blob
+                alt="Loaded Image"
+                width={1000}
+                height={600}
+                className="mt-4"
+                priority // Optional: This can be used to prioritize loading the image
+            />
+            ) : (
+            <p>No image found</p>
+            )}
+            </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
-export default MainScreen;
+export default MainPage;
