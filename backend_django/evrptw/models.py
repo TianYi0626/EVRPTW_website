@@ -25,6 +25,8 @@ class User(models.Model):
 
 class Client(models.Model):
     id = models.BigAutoField(primary_key=True)
+    node_id = models.IntegerField(default=0)
+    is_depot = models.BooleanField(default=False)
     is_charger = models.BooleanField(default=True)
     package_weight = models.FloatField(default=0)
     package_volume = models.FloatField(default=0)
@@ -33,7 +35,8 @@ class Client(models.Model):
     timewindow_start = models.IntegerField(default=0)
     timewindow_end = models.IntegerField(default=960)
     serve_time = models.IntegerField(default=30)
-    
+    cluster_id = models.IntegerField(default=0)
+
     def __str__(self) -> str:
         return str(id)
     

@@ -17,5 +17,6 @@ from django.contrib import admin
 from django.urls import path, include
 
 urlpatterns = [
+    path('api/', include('evrptw.urls')),
     path('', include('evrptw.urls')),
 ]
