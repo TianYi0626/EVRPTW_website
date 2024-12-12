@@ -27,7 +27,14 @@ const HomePage = () => {
           router.push("/main");
         }
         else {
-          alert(LOGIN_FAILED);
+          if (Number(res.code) === 1) {
+            alert(LOGIN_FAILED+"：用户不存在");
+          }
+          else {
+            if (Number(res.code) === 2) {
+              alert(LOGIN_FAILED+"：密码错误");
+            }
+          }
         }
       })
       .catch((err) => alert(`Failed to login: ${err}`));
