@@ -1,5 +1,5 @@
-import { BOARD_LENGTH } from "../constants/constants";
-import { Board } from "../utils/types";
+import { TASK_LENGTH } from "../constants/constants";
+import { Task } from "../utils/types";
 import Square from "./Square";
 
 interface BoardUIProps {

@@ -1,0 +1,24 @@
+/* 
+运行以下命令自动生成globals.css
+npx tailwindcss -i ./src/styles/input.css -o ./src/styles/globals.css --watch
+*/
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  margin: 0;
+  height: 100%;
+  width: 100%;
+  line-height: inherit;
+  /*background-image: url(../../img/gate.jpg);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;*/
+  /*background-color:rgba(230,230,230,1);*/
+}

@@ -1,12 +1,12 @@
 import { configureStore } from "@reduxjs/toolkit";
 
 import authReducer from "./auth";
-import boardReducer from "./board";
+import taskReducer from "./task";
 
 const store = configureStore({
     reducer: {
         auth: authReducer,
-        board: boardReducer,
+        task: taskReducer,
     },
 });
 

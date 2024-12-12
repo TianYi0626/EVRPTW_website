@@ -1,28 +1,26 @@
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
-import BoardUI from "../components/BoardUI";
 import { CREATE_SUCCESS, FAILURE_PREFIX, LOGIN_REQUIRED, UPDATE_SUCCESS } from "../constants/string";
-import { getBlankBoard, stepBoard, flipCell, boardToString, stringToBoard } from "../utils/logic";
+import { getNullTask, taskToString, stringToTask } from "../utils/logic";
 import { NetworkError, NetworkErrorType, request } from "../utils/network";
 import { RootState } from "../redux/store";
-import { resetBoardCache, setBoardCache } from "../redux/task";
+import { resetTaskCache, setTaskCache } from "../redux/task";
 import { useSelector, useDispatch } from "react-redux";
 
-const BoardScreen = () => {
+const MainScreen = () => {
     /**
      * @todo [Step 3] 请在下述一处代码缺失部分填写合适的代码，使得棋盘状态正确切换且计时器资源分配、释放合理
      */
-    const boardCache = useSelector((state: RootState) => state.board.board);
+    const taskCache = useSelector((state: RootState) => state.task.task);
     const userName = useSelector((state: RootState) => state.auth.name);
 
     const dispatch = useDispatch();
 
     const [id, setId] = useState<undefined | number>(undefined);
-    const [initBoard, setInitBoard] = useState(getBlankBoard());
-    const [board, setBoard] = useState(boardCache);
+    const [initTask, setInitTask] = useState(getNullTask());
+    const [task, setTask] = useState(taskCache);
     const [autoPlay, setAutoPlay] = useState(false);
     const [recordUserName, setRecordUserName] = useState("");
-    const [boardName, setBoardName] = useState("");
     const [refreshing, setRefreshing] = useState(false);
 
     const timerRef = useRef<undefined | NodeJS.Timeout>(undefined);
@@ -48,11 +46,10 @@ const BoardScreen = () => {
         setId(Number(router.query.id));
         request(`/api/boards/${router.query.id}`, "GET", false)
             .then((res) => {
-                const fetchedBoard = stringToBoard(res.board);
+                const fetchedTask = stringToTask(res.board);
 
-                setBoard(fetchedBoard);
-                setInitBoard(fetchedBoard);
-                setBoardName(res.boardName);
+                setTask(fetchedTask);
+                setInitTask(fetchedTask);
                 setRecordUserName(res.userName);
             })
             .catch((err) => {
@@ -68,15 +65,15 @@ const BoardScreen = () => {
 
     useEffect(() => {
         if (id === undefined) {
-            dispatch(resetBoardCache());
+            dispatch(resetTaskCache());
         }
 
         return () => {
             if (id === undefined) {
-                dispatch(setBoardCache(board));
+                dispatch(setTaskCache(task));
             }
         };
-    }, [board, id, dispatch]);
+    }, [task, id, dispatch]);
 
     const switchAutoPlay = () => {
         // Step 3 BEGIN
@@ -84,15 +81,14 @@ const BoardScreen = () => {
         // Step 3 END
     };
 
-    const saveBoard = () => {
+    const ExecuteTask = () => {
         request(
-            "/api/boards",
+            "/api/task",
             "POST",
             true,
             {
                 userName,
-                boardName,
-                board: boardToString(board),
+                task: taskToString(task),
             }
         )
             .then((res) => alert(res.isCreate ? CREATE_SUCCESS : UPDATE_SUCCESS))
@@ -119,19 +115,13 @@ const BoardScreen = () => {
             ) : (
                 <h4> Replay Mode, Board ID: {id}, Author: {recordUserName} </h4>
             )}
-            <BoardUI board={board} flip={(i, j) => {
-                if (!autoPlay) setBoard((board) => flipCell(board, i, j));
-            }} />
             <div style={{ display: "flex", flexDirection: "column" }}>
                 <div style={{ display: "flex", flexDirection: "row" }}>
-                    <button onClick={() => setBoard((board) => stepBoard(board))} disabled={autoPlay}>
-                        Step the board
-                    </button>
-                    <button onClick={() => setBoard(getBlankBoard())} disabled={autoPlay}>
+                    <button onClick={() => setTask(getNullTask())} disabled={autoPlay}>
                         Clear the board
                     </button>
                     {id !== undefined && (
-                        <button onClick={() => setBoard(initBoard)} disabled={autoPlay}>
+                        <button onClick={() => setTask(initTask)} disabled={autoPlay}>
                             Undo all changes
                         </button>
                     )}
@@ -139,20 +129,6 @@ const BoardScreen = () => {
                         {autoPlay ? "Stop" : "Start"} auto play
                     </button>
                 </div>
-                {id === undefined && (
-                    <div style={{ display: "flex", flexDirection: "row" }}>
-                        <input
-                            type="text"
-                            placeholder="Name of this Board"
-                            value={boardName}
-                            disabled={autoPlay}
-                            onChange={(e) => setBoardName(e.target.value)}
-                        />
-                        <button onClick={saveBoard} disabled={autoPlay || boardName === ""}>
-                            Save board
-                        </button>
-                    </div>
-                )}
                 <div style={{ display: "flex", flexDirection: "row" }}>
                     <button onClick={() => router.push("/list")}>
                         Go to full list
@@ -168,4 +144,4 @@ const BoardScreen = () => {
     );
 };
 
-export default BoardScreen;
+export default MainScreen;
