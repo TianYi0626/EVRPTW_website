@@ -38,7 +38,22 @@ class Client(models.Model):
 
     def __str__(self) -> str:
         return str(id)
-  
+class Cluster(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    clusterK = models.IntegerField(default=10)
+    cluster_label = models.JSONField(default=list)
+    class Meta:
+        indexes = [models.Index(fields=["clusterK"])]  # Add index for frequent queries
+
+    def serialize(self):
+        return {
+            "id": self.id,
+            "clusterK": self.clusterK,
+        }
+
+    def __str__(self) -> str:
+        return f"Cluster {self.id} (ClusterK: {self.clusterK})"
+    
 class Task(models.Model):
     id = models.BigAutoField(primary_key=True)
     user = models.ForeignKey(to=User, on_delete=models.CASCADE)
@@ -65,13 +80,22 @@ class Task(models.Model):
   
 class Route(models.Model):
     id = models.BigAutoField(primary_key=True)
+    clusterK = models.IntegerField(default=10)
+    clusterId = models.IntegerField(default=0)
+    clients = models.ManyToManyField(to=Client, related_name="routes")
     path = models.JSONField()
     vehicle = models.IntegerField(default=1)
-    task = models.ForeignKey(
-        to=Task, 
-        on_delete=models.CASCADE,
-        default=None
-    )
+
+    class Meta:
+        indexes = [models.Index(fields=["clusterK","clusterId"])]
+
+    def serialize(self):
+        return {
+            "id": self.id,
+            "clusterK": self.clusterK,
+            "clusterId": self.clusterId,
+            "clients": [client.id for client in self.clients.all()]
+        }
     
     def __str__(self) -> str:
         return str(id)
