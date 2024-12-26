@@ -27,11 +27,6 @@ def node_file(req: HttpRequest):
     user_name = data.get("userName")
     uploaded_file = req.FILES.get("file")
 
-    try:
-        user = User.objects.get(username=user_name)
-    except User.DoesNotExist:
-        return HttpResponseBadRequest(f"User '{user_name}' not found")
-
     if not uploaded_file.name.endswith('.xlsx'):
         return HttpResponseBadRequest("Uploaded file is not an Excel file")
 
@@ -75,11 +70,6 @@ def dw_file(req: HttpRequest):
 
     user_name = data.get("userName")
     uploaded_file = req.FILES.get("file")
-
-    try:
-        user = User.objects.get(username=user_name)
-    except User.DoesNotExist:
-        return HttpResponseBadRequest(f"User '{user_name}' not found")
 
     if not uploaded_file.name.endswith('.txt'):
         return HttpResponseBadRequest("Uploaded file is not an txt file")
