@@ -98,12 +98,6 @@ def update_k(request):
 
 @CheckRequire
 def location_img(req: HttpRequest):
-    try:
-        load_initial_clients()
-    except Exception as e:
-        print(f"Error loading clients: {e}")
-        return HttpResponseBadRequest("Error loading clients")
-
     if req.method == "POST":
         try:
             data = json.loads(req.body.decode("utf-8"))
@@ -124,6 +118,12 @@ def location_img(req: HttpRequest):
             user = User.objects.get(name=user_name)
         except User.DoesNotExist:
             user = User.objects.first()
+
+        try:
+            load_initial_clients(user_name)
+        except Exception as e:
+            print(f"Error loading clients: {e}")
+            return HttpResponseBadRequest("Error loading clients")
 
         tasks = Task.objects.filter(user=user, clusterK=k, clusters=clusters)
         cluster_group = Cluster.objects.filter(clusterK=k)
@@ -209,6 +209,7 @@ def route_img(req: HttpRequest):
             return HttpResponseBadRequest("Invalid JSON in request")
 
         k = data.get("k")
+        user_name = data.get("userName")
         cluster_id = data.get("cluster_id")
         time = data.get("time")
         if cluster_id > k-1:
@@ -254,7 +255,9 @@ def route_img(req: HttpRequest):
             vehicle_capacity = [2.5, 16]
             service_time = 30
 
-            distance_matrix_all, spendtm_matrix_all = load_distance('../data/input_distance_time.txt')
+            # distance_matrix_all, spendtm_matrix_all = load_distance('../data/input_distance_time.txt')
+            distance_matrix_all = pd.read_excel(f'data/{user_name}/distance.xlsx')
+            spendtm_matrix_all = pd.read_excel(f'data/{user_name}/spend_time.xlsx')
             distance_df_all = pd.DataFrame(distance_matrix_all)
             spendtm_df_all = pd.DataFrame(spendtm_matrix_all)
 

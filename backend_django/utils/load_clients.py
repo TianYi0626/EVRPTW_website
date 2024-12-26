@@ -1,17 +1,21 @@
 from evrptw.models import Client
 from utils.utils_loaddata import load_location
 from django.http import HttpResponseBadRequest
+import pandas as pd
 
-def load_initial_clients():
+def load_initial_clients(user_name):
     if Client.objects.exists():
         print("Data already loaded. Skipping initial load.")
         return
 
     print("Loading initial client data...")
     try:
-        locations, time_windows, packages = load_location(
-            '~/EVRPTW_website/backend_django/data/input_node.xlsx',
-            '~/EVRPTW_website/backend_django/data/m.xlsx')
+        locations = pd.read_excel(f'data/{user_name}/locations.xlsx')
+        time_windows = pd.read_excel(f'data/{user_name}/time_windows.xlsx')
+        packages = pd.read_excel(f'data/{user_name}/packages.xlsx')
+        # locations, time_windows, packages = load_location(
+        #     '~/EVRPTW_website/backend_django/data/input_node.xlsx',
+        #     '~/EVRPTW_website/backend_django/data/m.xlsx')
     except Exception as e:
         print(f"Error loading data files: {e}")
         return HttpResponseBadRequest("Error loading data files")
