@@ -1,12 +1,11 @@
 from django.shortcuts import render
 import json
 from django.http import HttpRequest, HttpResponse, JsonResponse, HttpResponseBadRequest
-from evrptw.models import User, Client
+from evrptw.models import User, Client, Task
 from utils.utils_request import BAD_METHOD, request_failed, request_success, return_field
 from utils.utils_require import MAX_CHAR_LENGTH, CheckRequire, require
 from utils.utils_time import get_timestamp
 from utils.utils_jwt import generate_jwt_token, check_jwt_token
-from utils.utils_cluster import cluster_kmeans
 from django.contrib.auth.hashers import make_password, check_password
 import matplotlib
 matplotlib.use('Agg') 
@@ -16,6 +15,7 @@ from io import BytesIO
 from utils.load_clients import load_initial_clients
 import numpy as np
 from saved import global_vars
+from sklearn.cluster import KMeans
 
 @CheckRequire
 def startup(req: HttpRequest):
@@ -37,7 +37,7 @@ def login(req: HttpRequest):
         if user:
             if check_password(password, user.password):
                 token = generate_jwt_token(username)
-                return JsonResponse({"code": 0, "info": "Succeed", "token": token})
+                return JsonResponse({"code": 0, "info": "Succeed", "token": token, "name": username})
             else:
                 return request_failed(2, "密码错误", 401)
         else:
@@ -92,45 +92,93 @@ def location_img(req: HttpRequest):
         load_initial_clients()
     except Exception as e:
         print(f"Error loading clients: {e}")
-        return HttpResponseBadRequest("Failed to load initial clients")
+        return HttpResponseBadRequest("Error loading clients")
 
-    if req.method == "GET":
-        cluster_kmeans(global_vars.k)
-        
-        clients = Client.objects.all()
+    if req.method == "POST":
+        try:
+            data = json.loads(req.body.decode("utf-8"))
+        except json.JSONDecodeError as e:
+            print(f"Invalid JSON in request: {e}")
+            return HttpResponseBadRequest("Invalid JSON in request")
+
+        k = data.get("k")
+        user_name = data.get("userName")
+        clusters = data.get("clusters")
+        clusterList = [char == '1' for char in clusters]
+        if len(clusterList) > k:
+            clusterList = clusterList[:k]
+        elif len(clusterList) < k:
+            return HttpResponseBadRequest("Mismatch between 'k' and clusterList length")
+            
+        try:
+            user = User.objects.get(name=user_name)
+        except User.DoesNotExist:
+            user = User.objects.first()
+
+        tasks = Task.objects.filter(user=user, clusterK=k, clusters=clusters)
+        if tasks.exists():
+            task = tasks.first()
+        else:
+            task = Task.objects.create(user=user, clusterK=k, status=0, clusters=clusters)
+
+            data = np.array([[client.location_lat, client.location_lng]
+                            for client in Client.objects.all()])
+            kmeans = KMeans(n_clusters=k, random_state=42)
+            cluster_labels = kmeans.fit_predict(data)
+            task.cluster_label = list(map(int, cluster_labels))
+            task.save()
+
+        try:
+            cluster_map = {
+                    cluster_id: [i for i, label in enumerate(task.cluster_label) if label == cluster_id]
+                    for cluster_id in range(len(clusterList))
+                    if clusterList[cluster_id]
+            }
+            client_ids = [client_id for cluster_ids in cluster_map.values() for client_id in cluster_ids]
+            clients = Client.objects.filter(id__in=client_ids)
+            task.clients.set(clients)
+            task.save()
+        except Exception as e:
+            return HttpResponseBadRequest("Failed to load clients")
+
         if not clients.exists():
-            print("No clients found in database.")
-            return HttpResponseBadRequest("No clients found")
-        latitudes = [client.location_lat for client in clients]
-        longitudes = [client.location_lng for client in clients]
-        cluster_ids = [client.cluster_id for client in clients]
+            return HttpResponseBadRequest("No clients found in database")
 
-        unique_cluster_ids = np.unique(cluster_ids)
-        colors = plt.cm.get_cmap('tab10', len(unique_cluster_ids))
+        try:
+            latitudes = [client.location_lat for client in clients]
+            longitudes = [client.location_lng for client in clients]
+            cluster_ids = task.cluster_label
 
-        # Create the scatter plot
-        plt.figure(figsize=(8, 6))
-        for cluster_id in unique_cluster_ids:
-            # Plot clients that belong to the current cluster
-            cluster_latitudes = [latitudes[i] for i in range(len(latitudes)) if cluster_ids[i] == cluster_id]
-            cluster_longitudes = [longitudes[i] for i in range(len(longitudes)) if cluster_ids[i] == cluster_id]
-            plt.scatter(cluster_longitudes, cluster_latitudes, label=f'Cluster {cluster_id}', 
-                        alpha=0.7, s=20, color=colors(cluster_id))
-        plt.title('Client Locations')
-        plt.xlabel('Longitude')
-        plt.ylabel('Latitude')
+            # unique_cluster_ids = np.unique(cluster_ids)
+            unique_cluster_ids = [cluster_id for cluster_id in np.unique(cluster_ids) if clusterList[cluster_id]]
 
-        # Save the plot to a BytesIO buffer
+            colors = plt.cm.get_cmap('tab10', len(unique_cluster_ids))
+
+            plt.figure(figsize=(8, 6))
+            for cluster_id in unique_cluster_ids:
+                if clusterList[cluster_id]:
+                    cluster_latitudes = [latitudes[i] for i in range(len(latitudes)) if cluster_ids[i] == cluster_id]
+                    cluster_longitudes = [longitudes[i] for i in range(len(longitudes)) if cluster_ids[i] == cluster_id]
+                    plt.scatter(cluster_longitudes, cluster_latitudes, label=f'Cluster {cluster_id}', 
+                                alpha=0.7, s=20, color=colors(cluster_id))
+            plt.title('Client Locations')
+            plt.xlabel('Longitude')
+            plt.ylabel('Latitude')
+        except Exception as e:
+            return HttpResponseBadRequest("Plot generation failed")
+
         buffer = BytesIO()
-        plt.savefig(buffer, format='png')
-        plt.close()
+        try:
+            plt.savefig(buffer, format='png')
+        except Exception as e:
+            return HttpResponseBadRequest("Plot save failed")
+        finally:
+            plt.close()
         buffer.seek(0)
 
-        # Serve the image as an HTTP response
-        return HttpResponse(buffer, content_type='image/png') 
+        return HttpResponse(buffer, content_type='image/png')
     else:
-        return BAD_METHOD
-
+        return HttpResponseBadRequest("Unsupported method")
 
 @CheckRequire
 def tasks_index(req: HttpRequest, index: any):
