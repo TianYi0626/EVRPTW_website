@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { BACKEND_URL } from "../constants/string";
 import Image from "next/image";
 import { resetAuth } from "../redux/auth";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState } from "../redux/store";
 
 const MainPage = () => {
     const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -16,6 +17,9 @@ const MainPage = () => {
     const [clusters, setClusters] = useState<boolean[]>(Array(20).fill(true));
     const [all, setAll] = useState<boolean>(true);
     const [none, setNone] = useState<boolean>(false);
+    const name = useSelector((state: RootState) => state.auth.name);
+    const [getblob, setGetblob] = useState<boolean>(false);
+    const clusterList = clusters.map(b => b ? "1" : "0").join("");
 
     const logout = () => {
         dispatch(resetAuth());
@@ -52,55 +56,50 @@ const MainPage = () => {
         }
     };
 
-    useEffect(() => {
-        const postKToBackend = async () => {
-            try {
-                const response = await fetch(`${BACKEND_URL}/api/update_k`, {
-                    method: "POST",
-                    body: JSON.stringify({ k, clusters }), // Send k as the request body
-                })
-                .then((res) => res.json())
-                .then((res) => {
-                  if (Number(res.code) === 0) {
-                    alert("聚类更新成功");
-                  }
-                  else {
-                    alert("聚类更新失败");
-                  }
-                  }
-                )
-                .catch((err) => alert(`Failed to login: ${err}`));
-
-                console.log("k successfully updated on the backend");
-            }
-            catch (error) {
-                console.error("Error while updating k:", error);
-            }
-        };
-        postKToBackend();
-    }, [k, clusters]); // Trigger the effect only when k changes
+    const solve = () => {
+        fetch(`${BACKEND_URL}/api/solve`, {
+              method: "POST",
+              body: JSON.stringify({
+                k,
+                name,
+                clusters: clusterList,
+            }),
+            })
+              .then((res) => res.json())
+              .then((res) => {
+                if (Number(res.code) === 0) {
+                    setK(k);
+                }
+              })
+              .catch((err) => alert(`Failed to solve: ${err}`));
+    };
 
     useEffect(() => {
-        // Replace this URL with your actual backend API endpoint
         fetch(`${BACKEND_URL}/api/location_img`, {
-            method: "GET",
-          })
+            method: "POST",
+                body: JSON.stringify({
+                    k,
+                    name,
+                    clusters: clusterList,
+                }),
+        })
         .then((res) => {
             if (!res.ok) {
-            throw new Error("Failed to fetch image");
+                throw new Error("Failed to fetch img");
             }
-            return res.blob(); // Assuming the image is sent as a binary blob
+            return res.blob();
         })
         .then((blob) => {
+            setGetblob(true);
             const imageUrl = URL.createObjectURL(blob);
             setImageUrl(imageUrl);
             setLoading(false);
         })
         .catch((err) => {
-            setError("Error loading image");
+            alert(err);
             setLoading(false);
         });
-    }, [k]);
+    }, [k, name, clusters, clusterList]);
 
     if (loading) {
         return <div>Loading...</div>;
@@ -137,7 +136,8 @@ const MainPage = () => {
             <li
                 onClick={() => setFunc(1)}
                 className={func === 1 ? "bg-base-100 text-black rounded-box w-36 items-center" : ""}>
-                <a>计算路径</a></li>
+                <a
+                onClick={solve}>计算路径</a></li>
             <li
                 onClick={() => setFunc(2)}
                 className={func === 2 ? "bg-base-100 text-black rounded-box w-36 items-center" : ""}>
@@ -216,7 +216,7 @@ const MainPage = () => {
                 priority // Optional: This can be used to prioritize loading the image
             />
             ) : (
-            <p>No image found</p>
+            <p>No image found for {name}: {error} {getblob ? 1 : 2}</p>
             )}
             </div>
         </div>

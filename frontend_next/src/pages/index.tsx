@@ -22,7 +22,7 @@ const HomePage = () => {
       .then((res) => {
         if (Number(res.code) === 0) {
           dispatch(setToken(res.token));
-          dispatch(setName(userName));
+          dispatch(setName(res.name));
           alert(LOGIN_SUCCESS_PREFIX + userName);
           router.push("/main");
         }

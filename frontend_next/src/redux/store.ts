@@ -6,7 +6,6 @@ import taskReducer from "./task";
 const store = configureStore({
     reducer: {
         auth: authReducer,
-        task: taskReducer,
     },
 });
 
