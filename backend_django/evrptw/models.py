@@ -82,7 +82,7 @@ class Route(models.Model):
     id = models.BigAutoField(primary_key=True)
     clusterK = models.IntegerField(default=10)
     clusterId = models.IntegerField(default=0)
-    clients = models.ManyToManyField(to=Client, related_name="tasks")
+    clients = models.ManyToManyField(to=Client, related_name="routes")
     path = models.JSONField()
     vehicle = models.IntegerField(default=1)
 

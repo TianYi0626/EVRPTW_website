@@ -17,7 +17,7 @@ from utils.utils_loaddata import *
 import numpy as np
 from saved import global_vars
 from sklearn.cluster import KMeans
-from acovrp import acovrp
+from utils.acovrp import acovrp
 import time
 import pandas as pd
 
